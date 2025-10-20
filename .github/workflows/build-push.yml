@@ -1,0 +1,57 @@
+name: Build and Push Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: 'Full image name, e.g. ghcr.io/<owner>/<repo>'
+        required: true
+        type: string
+      context:
+        description: 'Docker build context'
+        default: '.'
+        type: string
+      dockerfile:
+        description: 'Dockerfile path'
+        default: 'Dockerfile'
+        type: string
+      platforms:
+        description: 'Target platforms for the build'
+        default: 'linux/arm64,linux/amd64'
+        type: string
+      tags:
+        description: 'Newline-separated list of extra tags'
+        default: 'main'
+        type: string
+
+jobs:
+  build-and-push:
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v6
+      #   with:
+      #     push: true
+      #     tags: |
+      #       ${{ inputs.image }}:${{ github.sha }}
+      #       ${{ inputs.image }}:${{ inputs.tags }}
+      #     context: ${{ inputs.context }}
+      #     file: ${{ inputs.dockerfile }}
+      #     platforms: ${{ inputs.platforms }}
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
