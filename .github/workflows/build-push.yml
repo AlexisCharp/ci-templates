@@ -43,13 +43,35 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      - name: Prepare tags
+        id: tags
+        shell: bash
+        run: |
+          IMAGE='${{ inputs.image }}'
+
+          # Build list of tags with image prefix
+          TAGS_LIST=""
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              if [ -n "$TAGS_LIST" ]; then
+                TAGS_LIST="${TAGS_LIST}"$'\n'"${IMAGE}:${tag}"
+              else
+                TAGS_LIST="${IMAGE}:${tag}"
+              fi
+            fi
+          done <<< "${{ inputs.tags }}"
+
+          echo "list<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$TAGS_LIST" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           push: true
           tags: |
             ${{ inputs.image }}:${{ github.sha }}
-            ${{ inputs.image }}:${{ inputs.tags }}
+            ${{ steps.tags.outputs.list }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           platforms: ${{ inputs.platforms }}

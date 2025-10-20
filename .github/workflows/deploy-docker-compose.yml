@@ -1,0 +1,51 @@
+name: Deploy via Docker Compose
+
+on:
+  workflow_call:
+    inputs:
+      host_dir:
+        description: 'Absolute path on the remote host containing docker-compose.yml'
+        required: true
+        type: string
+      pull:
+        description: 'Whether to pull images before up'
+        default: true
+        type: boolean
+      cleanup_images:
+        description: 'Prune dangling images after deploy'
+        default: true
+        type: boolean
+    secrets:
+      ssh_host:
+        required: true
+      ssh_user:
+        required: true
+      ssh_key:
+        required: true
+      ghcr_user:
+        required: false
+      ghcr_token:
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open SSH session
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.ssh_host }}
+          username: ${{ secrets.ssh_user }}
+          key: ${{ secrets.ssh_key }}
+          script: |
+            cd ${{ inputs.host_dir }}
+            if ${{ inputs.pull }}; then
+              if [[ -n "${{ secrets.ghcr_user }}" && -n "${{ secrets.ghcr_token }}" ]]; then
+                echo "${{ secrets.ghcr_token }}" | docker login ghcr.io -u "${{ secrets.ghcr_user }}" --password-stdin
+              fi
+              docker compose pull
+            fi
+            docker compose up -d
+            if ${{ inputs.cleanup_images }}; then
+              docker image prune -f
+            fi
